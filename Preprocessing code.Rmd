@@ -1,0 +1,182 @@
+---
+title: "Culture in Crisis 3.0 - Preprocessing | SocKult exam F24"
+author: "Naja Mølle Lindelof"
+date: "2024"
+---
+
+
+# Install packages and set up coding environment
+
+Using the package versions:
+- Base R 4.3.3
+- tidyverse 2.0.0
+- tidytext 0.4.2
+- topicmodels 0.2.16
+- conflicted 1.2.0
+- here 1.0.1
+
+
+```{r install_packages}
+
+# Setup coding environment
+knitr::opts_chunk$set(echo = TRUE)
+
+# Use the pacman package to install all the other packages
+pacman::p_load(tidyverse, tidytext, topicmodels, here, conflicted)
+
+```
+
+# Preprocessing
+
+## Merging
+
+__Merge data__
+```{r merge_data_function}
+
+# Make function for merging data periods
+merge_data <- function(data_1, data_2){
+  
+  # Combine raw data file 1 and 2,
+  data_merged <- bind_rows(data_1, data_2) %>%
+    
+    # Ensure that all dates and times in the column Datetime are recognised as representing calendar dates 
+    mutate(Datetime = as.Date(Datetime)) %>% 
+    
+    # Remove any doublets of tweets
+    distinct(Tweet, .keep_all = T) %>% 
+    
+    # Remove retweets
+    dplyr::filter(!str_detect(Tweet, "^RT")) %>% 
+    
+    # Make ID based on row number and put ID column first
+    mutate(ID = as.character(row_number())) %>% 
+    dplyr::select(ID, everything())
+  
+  # Ensure that hashtags are recognised as characters
+  data_merged$Hashtags <- as.character(data_merged$Hashtags)
+
+  return(data_merged)
+}
+
+```
+
+
+```{r load_raw_data}
+
+# Load the raw data files, two for each period due to scraping procedure
+before_1 <- read_csv("before_1.csv")
+before_2 <- read_csv("before_2.csv")
+
+during_1 <- read_csv("during_1.csv")
+during_2 <- read_csv("during_2.csv")
+
+after_1 <- read_csv("after_1.csv")
+after_2 <- read_csv("after_2.csv")
+
+```
+
+```{r merge_raw_data}
+
+# Merge raw data using custom function merge_data defined above
+before <- merge_data(before_1, before_2) %>% 
+  # Add column with the period that the data represents
+  mutate(Period = "Before")
+
+during <- merge_data(during_1, during_2) %>% 
+  mutate(Period = "During")
+
+after <- merge_data(after_1, after_2) %>% 
+  mutate(Period = "After")
+
+```
+
+```{r download_merged_data}
+
+# download merged data with function write.csv()
+write.csv(before, "before_final data.csv", row.names = FALSE)
+write.csv(during, "during_final data.csv", row.names = FALSE)
+write.csv(after, "after_final data.csv", row.names = FALSE)
+
+```
+
+
+## Cleaning the merged data
+
+Here, cleaning entails:
+1. Tokenizing the tweets by words
+2. Removing stop words and special signs
+
+
+```{r stopwords_regex}
+
+# Load in Danish list of stop words (Torp, 2020)
+stop_da <- read_table("stopord.txt", col_names = F) %>%
+  mutate(word = X1) %>% 
+  select(word)
+
+# Define special signs (&, <, >) and URLs incl. retweets that should be removed, using regular expressions (regex)
+replace_reg <- "https://t.co/[A-Åa-å\\d]+|http://[A-Åa-å\\d]+|&amp;|&lt;|&gt;|RT|https"
+
+# Define regular expression for retaining hashtags and usernames that are meaningful in Twitter language
+unnest_reg <- "([^A-Za-zÆØÅæøå_\\d#@']|'(?![A-ZaÆØÅæøå_\\d#@]))"
+
+```
+
+
+
+```{r tidy_data_function}
+
+# Build function for tidying data:
+tidy_data <- function(data_merged){
+  data_tidy <- data_merged %>% 
+    # Remove special signs and expressions as defined above
+    mutate(Tweet = str_replace_all(Tweet, replace_reg, "")) %>% 
+    
+    # Perform tokenization into token words that make up each tweet while retaining hashtags and usernames as defined above
+    unnest_tokens(word, Tweet, token = "regex", pattern = unnest_reg) %>% 
+    
+    # Remove all words that match a word in the stop words list
+    dplyr::filter(!word %in% stop_da$word, 
+         str_detect(word, "[a-å]"),
+         str_count(word)>1)
+    
+  return(data_tidy)
+}
+
+```
+
+
+### Tidy data
+
+```{r tidy}
+
+# Clean and tidy the data
+tidy_before <- tidy_data(before)
+tidy_during <- tidy_data(during)
+tidy_after <- tidy_data(after)
+
+```
+
+```{r merge_all_tidy}
+
+# Make one data file containing all the cleaned and preprocessed tidy data
+tidy_all <- bind_rows(tidy_after, tidy_before, tidy_during)
+
+```
+
+
+```{r download_tidy_data}
+
+# Download tidy data
+write.csv(tidy_before, "before_tidy data.csv", row.names = FALSE)
+write.csv(tidy_during, "during_tidy data.csv", row.names = FALSE)
+write.csv(tidy_after, "after_tidy data.csv", row.names = FALSE)
+write.csv(tidy_all, "all_tidy data.csv", row.names = FALSE)
+
+```
+
+
+# References
+Torp, B. (2020). Dansk stopords Liste. [Danish stopwords]. Github. https://gist.github.com/berteltorp/0cf8a0c7afea7f25ed754f24cfc2467b
+
+
