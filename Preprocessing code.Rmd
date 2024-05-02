@@ -132,6 +132,7 @@ tidy_data <- function(data_merged){
     mutate(Tweet = str_replace_all(Tweet, replace_reg, "")) %>% 
     
     # Perform tokenization into token words that make up each tweet while retaining hashtags and usernames as defined above
+    # Note that the function also removes any punctuation and converts all letters to lowercase
     unnest_tokens(word, Tweet, token = "regex", pattern = unnest_reg) %>% 
     
     # Remove all words that match a word in the stop words list
