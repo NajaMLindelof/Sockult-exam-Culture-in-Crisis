@@ -8,12 +8,11 @@ date: "2024"
 # Install packages and set up coding environment
 
 Using the package versions:
-- Base R 4.3.3
+- Base R 4.3.2
 - tidyverse 2.0.0
 - tidytext 0.4.2
 - topicmodels 0.2.16
 - conflicted 1.2.0
-- here 1.0.1
 
 
 ```{r install_packages}
@@ -22,7 +21,7 @@ Using the package versions:
 knitr::opts_chunk$set(echo = TRUE)
 
 # Use the pacman package to install all the other packages
-pacman::p_load(tidyverse, tidytext, topicmodels, here, conflicted)
+pacman::p_load(tidyverse, tidytext, topicmodels, conflicted)
 
 ```
 
