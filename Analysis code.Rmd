@@ -1,0 +1,276 @@
+---
+title: "Culture in Crisis | SocKult exam F24"
+author: "Naja Mølle Lindelof"
+date: "2024"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# Install packages and set up coding environment
+
+Using the following package versions:
+- Base R 4.3.2
+- pacman 0.5.1
+- tidyverse 2.0.0
+- tidytext 0.4.2
+- topicmodels 0.2.16
+- tm 0.7.13
+- broom 1.0.5
+- scales 1.3.0
+- reshape2 1.4.4
+- patchwork 1.2.0
+- viridis 0.6.5
+- conflicted 1.2.0
+
+
+```{r setup, include = F}
+
+# Setup coding environment
+knitr::opts_chunk$set(echo = TRUE)
+
+# Use pacman package to install all the other packages
+pacman::p_load(
+  tidyverse, 
+  tidytext, 
+  topicmodels, 
+  tm, 
+  broom, 
+  scales, 
+  reshape2,
+  patchwork,
+  viridis,
+  conflicted
+)
+
+```
+
+
+
+### Load preprocessed data
+See preprocessing code file for details
+
+```{r load_preprocessed}
+
+before <- read_csv("before_final data.csv")
+during <- read_csv("during_final data.csv")
+after <- read_csv("after_final data.csv")
+
+```
+
+
+```{r load_tidy_data}
+
+tidy_before <- read_csv("before_tidy data.csv")
+tidy_during <- read_csv("during_tidy data.csv")
+tidy_after <- read_csv("after_tidy data.csv")
+tidy_all <- read_csv("all_tidy data.csv")
+
+```
+
+### Plot of distribution of tweets across periods
+
+```{r distribution histogram}
+
+# Merge original data
+all_data <- bind_rows(before, during, after)
+
+# Make a histogram of the distribution of tweets per period
+all_data %>% 
+  ggplot(aes(x = Datetime, fill = Period)) +
+  geom_histogram(position = "identity", bins = 20, show.legend = FALSE) +
+  facet_wrap(~ Period, ncol = 1) +
+  # Implement colour blind friendly colour palette
+  scale_fill_viridis_d() + 
+  # Implement nice font
+  theme(text = element_text(family = "Cambria")) +
+  ggtitle("Distribution of tweets across periods")
+
+```
+
+
+## NLP: Topic modelling
+
+### Convert data to DTM
+For many machine learning algorithm, it is necessary to convert data to the format document-term matrix (DTM), a common matrix format representing tokens (the semantic units) as columns, documents (i.e. the tweets) as rows, and term frequency (number of times a token appears in a document) as the matrix values. As most term-document pairings will not occur at all (then the documents, i.e. tweets, would be nearly identical), many term frequency values will be 0; the amount of zero-values is the _sparsity_ of the matrix.
+
+
+```{r dtm_fuction}
+
+# Build function for converting the tidy data frames containing the tokens to DTMs
+dtm_data <- function(tidy_data){
+  grouped_data <- tidy_data %>% 
+    
+    # Remove the two keywords used to scrape the data due to their naturally occuring high frequency
+      # Note that I keep the third keyword, kulturpolitik, because it is meaningful for the following analysis
+    dplyr::filter(word != "#dkpol", word != "#dkkultur") %>%
+    
+    # Reassemble the token words into their original tweets using their datetimes (assuming no equal datetimes in the format (Y-M-D H:M:S))
+    group_by(Datetime) %>% 
+    summarise(Text = paste(word, collapse = " ")) 
+    
+  # Make all the tweet documents into a text corpus
+  corpus <- tm::Corpus(VectorSource(grouped_data$Text))
+  
+  # Convert this corpus to a DTM
+  data_dtm <- tm::DocumentTermMatrix(corpus)
+  
+  return(data_dtm)
+}
+
+```
+
+```{r dtm_of_tidy_data}
+
+# Convert the data to DTMs using this custom function
+dtm_before <- dtm_data(tidy_before)
+dtm_during <- dtm_data(tidy_during)
+dtm_after <- dtm_data(tidy_after)
+
+dtm_all <- dtm_data(tidy_all)
+
+```
+
+### Fit LDA topic models
+
+```{r fit_lda}
+
+# Fit LDA topic models  
+tm_before <- topicmodels::LDA(dtm_before, k = 3, control = list(seed = 1234))
+tm_during <- topicmodels::LDA(dtm_during, k = 3, control = list(seed = 1234))
+tm_after <- topicmodels::LDA(dtm_after, k = 3, control = list(seed = 1234))
+
+tm_all <- topicmodels::LDA(dtm_all, k = 3, control = list(seed = 1234))
+
+```
+
+### Inspect topics
+
+#### Per-topic-per-word probabilities 
+
+```{r compute_beta}
+
+# Compute per-topic-per-word (beta) probabilities 
+topics_before <- tidytext::tidy(tm_before, matrix = "beta")
+topics_during <- tidytext::tidy(tm_during, matrix = "beta")
+topics_after <- tidytext::tidy(tm_after, matrix = "beta")
+
+topics_all <- tidytext::tidy(tm_all, matrix = "beta")
+
+```
+
+
+
+
+```{r top_terms}
+
+# Build function for finding the most common words used in each topic in a period
+top_terms <- function(topics_data){
+  top <- topics_data %>% 
+    
+    # Select the n rows of words with the highest beta-values in each topic 
+    group_by(topic) %>% 
+    slice_max(beta, n = 15) %>% 
+    
+    # Arrange these words in descending order from higher to lower beta-values for each topic
+    ungroup() %>%
+    arrange(topic, -beta)
+  
+  return(top)
+}
+
+
+# Build function for plotting these 
+plot_top_terms <- function(top_terms){
+  top_terms %>% 
+    
+    # Reorder the list of top terms by beta-values within to the topics to which the terms belong
+    mutate(term = reorder_within(term, beta, topic)) %>%
+    
+    # Plot the top terms according to their beta-values
+    ggplot(aes(beta, term, fill = factor(topic))) +
+    geom_col(show.legend = FALSE) +
+    facet_wrap(~ topic, scales = "free") +
+    scale_y_reordered() +
+  
+    # Implement (a different) colour blind friendly colour palette  
+    scale_fill_viridis_d(option = "C") +
+    # and nice font:)
+    theme(text = element_text(family = "Cambria"))
+
+}
+
+```
+
+
+```{r}
+
+# Calculate and plot top terms within each period, add period name
+## Before
+tt_before <- top_terms(topics_before)
+ttplot_before <- plot_top_terms(tt_before) +
+  ggtitle("Before")
+
+## During
+tt_during <- top_terms(topics_during)
+ttplot_during <- plot_top_terms(tt_during) + 
+  ggtitle("During")
+
+## After
+tt_after <- top_terms(topics_after)
+ttplot_after <- plot_top_terms(tt_after) +
+  ggtitle("After")
+
+## All
+tt_all <- top_terms(topics_all)
+ttplot_all <- plot_top_terms(tt_all) +
+  ggtitle("All periods")
+
+
+
+
+# Plot the figures (not with patchwork, ruins layout:()
+ttplot_before
+ttplot_during
+ttplot_after
+
+ttplot_all
+
+# Save plots using the ggsave() function
+ggsave(plot = ttplot_before, file = "Before_topterms.jpeg", width = 7, height = 3.5)
+ggsave(plot = ttplot_during, file = "During_topterms.jpeg", width = 7, height = 3.5)
+ggsave(plot = ttplot_after, file = "After_topterms.jpeg", width = 7, height = 3.5)
+ggsave(plot = ttplot_all, file = "ALL_topterms.jpeg", width = 7, height = 3.5)
+
+```
+
+#### Per-document-per-topic probabilities
+
+```{r compute_gamma}
+
+# Compute per-document-per-topic (gamma) probabilities
+documents_before <- tidytext::tidy(tm_before, matrix = "gamma")
+documents_during <- tidytext::tidy(tm_during, matrix = "gamma")
+documents_after <- tidytext::tidy(tm_after, matrix = "gamma")
+
+documents_all <- tidytext::tidy(tm_all, matrix = "gamma")
+
+```
+
+
+
+
+## Network analysis
+
+
+
+
+
+
+
+
+
+
+
+
+
