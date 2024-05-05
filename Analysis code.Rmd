@@ -9,6 +9,9 @@ output:
 
 # Install packages and set up coding environment
 
+LINK FOR IMPLEMENTING RENV FOR REPRODUCIBILITY:
+https://raps-with-r.dev/repro_intro.html
+
 Using the following package versions:
 - Base R 4.3.2
 - pacman 0.5.1
