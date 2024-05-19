@@ -242,9 +242,12 @@ ggsave(plot = ttplot_after, file = "After_topterms.jpeg", width = 7, height = 3.
 ```{r compute_gamma}
 
 # Compute per-document-per-topic (gamma) probabilities
-documents_before <- tidytext::tidy(tm_before, matrix = "gamma")
-documents_during <- tidytext::tidy(tm_during, matrix = "gamma")
-documents_after <- tidytext::tidy(tm_after, matrix = "gamma")
+documents_before <- as.tibble(tm_before@gamma) %>% 
+  mutate(ID = row_number())
+documents_during <- as.tibble(tm_during@gamma) %>% 
+  mutate(ID = row_number())
+documents_after <- as.tibble(tm_after@gamma) %>% 
+  mutate(ID = row_number())
 
 ```
 
@@ -252,6 +255,78 @@ documents_after <- tidytext::tidy(tm_after, matrix = "gamma")
 
 
 ## Network analysis
+
+
+nodes = usernames
+  attribute = topic distribution
+edges = strength of similarity in attributes
+
+
+1) aggregate topic distribution per individual
+- Texts/documents in topic model = same indexing as original data
+
+2) calculate cosine similarity 
+
+
+
+### Compute aggregated distribution of topics per user
+
+```{r aggregate_gamma}
+
+# Build function for computing/collecting topic distribution attribute for each username
+gamma_dist <- function(original_data, gamma_data){
+  
+  # Find usernames for those who posted more than one time during the period
+  duplicates <- original_data %>% 
+    group_by(Username) %>%
+    dplyr::filter(n() > 1) %>%
+    distinct(Username) %>%
+    dplyr::pull(Username)
+  
+  # Extract all tweet IDs for each of these usernames (i.e. multiple IDs per user)
+  multi_ids <- original_data %>% 
+    dplyr::filter(Username %in% duplicates) %>%
+    select(ID, Username)
+  
+  # Extract topic distribution for all tweets matching these IDs (i.e. gamma probs for all tweets by more active tweeters)
+  multi_topic <- gamma_data %>% 
+    inner_join(multi_ids, by = "ID") %>%
+    select(Username, V1, V2, V3)
+  
+  # Compute the average topic distribution for each username (i.e. average over user)
+  avrg_topics <- multi_topic %>% 
+    group_by(Username) %>% 
+    mutate(V1 = mean(V1), V2 = mean(V2), V3 = mean(V3)) %>% 
+    distinct(Username, .keep_all = T)
+  
+  
+  # Extract tweets from users who only tweeted once (same approach)
+  singles <- before %>%
+    dplyr::filter(!Username %in% duplicates) %>%
+    select(ID, Username)
+
+  singl_topics <- gamma_data %>% 
+    inner_join(singles, by = "ID") %>%
+    select(Username, V1, V2, V3)
+
+
+  # Get final tibble with only one (averaged) topic distribution for each username
+  combined_gammas <- bind_rows(singl_topics, avrg_topics)
+  
+  return(combined_gammas)
+
+}
+
+```
+
+```{r comp_agg_gamma}
+
+# Aggregate gamma distributions over usernames using custom function
+dist_gamma_before <- gamma_dist(before, documents_before)
+dist_gamma_during <- gamma_dist(during, documents_during)
+dist_gamma_after <- gamma_dist(after, documents_after)
+
+```
 
 
 
