@@ -37,10 +37,7 @@ merge_data <- function(data_1, data_2){
   
   # Combine raw data file 1 and 2,
   data_merged <- bind_rows(data_1, data_2) %>%
-    
-    # Ensure that all dates and times in the column Datetime are recognised as representing calendar dates 
-    mutate(Datetime = as.Date(Datetime)) %>% 
-    
+
     # Remove any doublets of tweets
     distinct(Tweet, .keep_all = T) %>% 
     
