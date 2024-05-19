@@ -134,20 +134,17 @@ dtm_before <- dtm_data(tidy_before)
 dtm_during <- dtm_data(tidy_during)
 dtm_after <- dtm_data(tidy_after)
 
-dtm_all <- dtm_data(tidy_all)
-
 ```
 
-### Fit LDA topic models
+### Fit LDA topic models using Gibbs sampling
+Gibbs sampling using the default control and hyper parameters as specified in (https://cran.r-project.org/web/packages/topicmodels/vignettes/topicmodels.pdf)
 
 ```{r fit_lda}
 
 # Fit LDA topic models  
-tm_before <- topicmodels::LDA(dtm_before, k = 3, control = list(seed = 1234))
-tm_during <- topicmodels::LDA(dtm_during, k = 3, control = list(seed = 1234))
-tm_after <- topicmodels::LDA(dtm_after, k = 3, control = list(seed = 1234))
-
-tm_all <- topicmodels::LDA(dtm_all, k = 3, control = list(seed = 1234))
+tm_before <- topicmodels::LDA(dtm_before, k = 3, method = "Gibbs", control = list(seed = 1234))
+tm_during <- topicmodels::LDA(dtm_during, k = 3, method = "Gibbs", control = list(seed = 1234))
+tm_after <- topicmodels::LDA(dtm_after, k = 3, method = "Gibbs", control = list(seed = 1234))
 
 ```
 
@@ -162,11 +159,7 @@ topics_before <- tidytext::tidy(tm_before, matrix = "beta")
 topics_during <- tidytext::tidy(tm_during, matrix = "beta")
 topics_after <- tidytext::tidy(tm_after, matrix = "beta")
 
-topics_all <- tidytext::tidy(tm_all, matrix = "beta")
-
 ```
-
-
 
 
 ```{r top_terms}
@@ -228,26 +221,17 @@ tt_after <- top_terms(topics_after)
 ttplot_after <- plot_top_terms(tt_after) +
   ggtitle("After")
 
-## All
-tt_all <- top_terms(topics_all)
-ttplot_all <- plot_top_terms(tt_all) +
-  ggtitle("All periods")
-
-
-
 
 # Plot the figures (not with patchwork, ruins layout:()
 ttplot_before
 ttplot_during
 ttplot_after
 
-ttplot_all
 
 # Save plots using the ggsave() function
 ggsave(plot = ttplot_before, file = "Before_topterms.jpeg", width = 7, height = 3.5)
 ggsave(plot = ttplot_during, file = "During_topterms.jpeg", width = 7, height = 3.5)
 ggsave(plot = ttplot_after, file = "After_topterms.jpeg", width = 7, height = 3.5)
-ggsave(plot = ttplot_all, file = "ALL_topterms.jpeg", width = 7, height = 3.5)
 
 ```
 
@@ -259,8 +243,6 @@ ggsave(plot = ttplot_all, file = "ALL_topterms.jpeg", width = 7, height = 3.5)
 documents_before <- tidytext::tidy(tm_before, matrix = "gamma")
 documents_during <- tidytext::tidy(tm_during, matrix = "gamma")
 documents_after <- tidytext::tidy(tm_after, matrix = "gamma")
-
-documents_all <- tidytext::tidy(tm_all, matrix = "gamma")
 
 ```
 
