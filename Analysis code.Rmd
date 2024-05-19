@@ -115,10 +115,10 @@ dtm_data <- function(tidy_data){
     ungroup() %>% 
     distinct(Datetime, .keep_all = T) %>%
     select(-word)
-  
-# Make all the tweet documents into a text corpus
-  corpus <- tm::Corpus(VectorSource(grouped_data$Text))
-  
+    
+  # Make all the tweet documents into a text corpus (function returns corpus with documents in same order as input)
+  corpus <- quanteda::corpus(grouped_data, text_field = "Text")
+
   # Convert this corpus to a DTM
   data_dtm <- tm::DocumentTermMatrix(corpus)
   
