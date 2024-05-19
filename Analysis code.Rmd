@@ -22,7 +22,6 @@ Using the following package versions:
 - broom 1.0.5
 - scales 1.3.0
 - reshape2 1.4.4
-- patchwork 1.2.0
 - viridis 0.6.5
 - conflicted 1.2.0
 
@@ -41,7 +40,6 @@ pacman::p_load(
   broom, 
   scales, 
   reshape2,
-  patchwork,
   viridis,
   conflicted
 )
@@ -107,12 +105,18 @@ dtm_data <- function(tidy_data){
     # Remove the two keywords used to scrape the data due to their naturally occuring high frequency
       # Note that I keep the third keyword, kulturpolitik, because it is meaningful for the following analysis
     dplyr::filter(word != "#dkpol", word != "#dkkultur") %>%
-    
-    # Reassemble the token words into their original tweets using their datetimes (assuming no equal datetimes in the format (Y-M-D H:M:S))
+
+  # Assuming no equal datetimes in the format (Y-M-D H:M:S):
+    # Reassemble the token words into their original tweets using their datetimes
     group_by(Datetime) %>% 
-    summarise(Text = paste(word, collapse = " ")) 
+    mutate(Text = paste(word, collapse = " ")) %>% 
     
-  # Make all the tweet documents into a text corpus
+    # Clean up in output: Keep only one version of reassembled tweets, discard tidy words column
+    ungroup() %>% 
+    distinct(Datetime, .keep_all = T) %>%
+    select(-word)
+  
+# Make all the tweet documents into a text corpus
   corpus <- tm::Corpus(VectorSource(grouped_data$Text))
   
   # Convert this corpus to a DTM
