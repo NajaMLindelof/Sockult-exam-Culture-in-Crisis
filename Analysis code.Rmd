@@ -301,7 +301,7 @@ gamma_dist <- function(original_data, gamma_data){
   
   
   # Extract tweets from users who only tweeted once (same approach)
-  singles <- before %>%
+  singles <- original_data %>%
     dplyr::filter(!Username %in% duplicates) %>%
     select(ID, Username)
 
