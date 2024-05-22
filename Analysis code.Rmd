@@ -286,28 +286,34 @@ gamma_dist <- function(original_data, gamma_data){
   # Extract all tweet IDs for each of these usernames (i.e. multiple IDs per user)
   multi_ids <- original_data %>% 
     dplyr::filter(Username %in% duplicates) %>%
-    select(ID, Username)
+    select(ID, Username, Hashtags)
   
   # Extract topic distribution for all tweets matching these IDs (i.e. gamma probs for all tweets by more active tweeters)
   multi_topic <- gamma_data %>% 
     inner_join(multi_ids, by = "ID") %>%
-    select(Username, V1, V2, V3)
+    select(Username, V1, V2, V3, Hashtags)
   
   # Compute the average topic distribution for each username (i.e. average over user)
   avrg_topics <- multi_topic %>% 
     group_by(Username) %>% 
     mutate(V1 = mean(V1), V2 = mean(V2), V3 = mean(V3)) %>% 
-    distinct(Username, .keep_all = T)
+
+  # Aggregate hashtags per user as well. First clean Hashtag column.
+    mutate(Hashtags = gsub("\\[|\\]|'", "", Hashtags)) %>% 
+    group_by(Username, V1, V2, V3) %>% 
+    # Then collapse Hashtags per user while removing duplicates
+    summarise(Hashtags = paste(unique(unlist(strsplit(Hashtags, ",\\s*"))), collapse = " "), .groups = 'drop')
   
-  
+
   # Extract tweets from users who only tweeted once (same approach)
   singles <- original_data %>%
     dplyr::filter(!Username %in% duplicates) %>%
-    select(ID, Username)
+    select(ID, Username, Hashtags)
 
   singl_topics <- gamma_data %>% 
     inner_join(singles, by = "ID") %>%
-    select(Username, V1, V2, V3)
+    mutate(Hashtags = gsub("\\[|\\]|'", "", Hashtags)) %>% 
+    select(Username, V1, V2, V3, Hashtags)
 
 
   # Get final tibble with only one (averaged) topic distribution for each username
@@ -327,6 +333,127 @@ dist_gamma_during <- gamma_dist(during, documents_during)
 dist_gamma_after <- gamma_dist(after, documents_after)
 
 ```
+
+
+### Compute pairwise cosine similarity measures of topic distributions. 
+
+```{r cosim_func}
+
+# Build function for computing cosine similarity measures using package proxy
+cosim <- function(gamma_dist){
+  
+  # Convert gamma distribution file to matrix format
+  matrix_dist <- gamma_dist %>%
+    select(-Hashtags) %>% 
+    column_to_rownames("Username") %>%
+    as.matrix()
+  
+  # Calculate the cosine similarity between each pair of persons
+  cosine_sim <- proxy::simil(matrix_dist, method = "cosine")
+
+  # Convert matrix of cosine similarity to tibble
+  cosine_sim <- as.data.frame(as.table(as.matrix(cosine_sim)))
+  colnames(cosine_sim) <- c("from", "to", "cosine_similarity")
+
+  cosine_sim <- cosine_sim %>% 
+    as_tibble() %>% 
+    
+    # Discard NA similarity measures that are between the same user
+    dplyr::filter(!is.na(cosine_similarity))
+  
+  # Convert data formats
+  #cosine_sim$from <- as.character(cosine_sim$from)
+  #cosine_sim$to <- as.character(cosine_sim$to)
+    
+  return(cosine_sim)
+  
+}
+
+```
+
+
+```{r compute_cosim}
+
+# Compute cosine similarity measures
+before_co_sim <- cosim(before_dist_gamma)
+during_co_sim <- cosim(during_dist_gamma)
+after_co_sim <- cosim(after_dist_gamma)
+
+```
+
+### Compute pairwise Jaccard similarity measures of hashtags
+
+```{r jacsim_func}
+
+# Build function for computing jaccard similarity measures between hashtags using package bayesbio
+jac_sim <- function(gamma_dist){
+  
+  # Compute sets for each string of hashtags per user
+  gamma_dist <- gamma_dist %>%
+  mutate(HashtagsSet = strsplit(Hashtags, ",\\s*"))
+
+  # Build empty matrix of similarity measures
+  users <- gamma_dist$Username
+  nu <- length(users)
+  similarity_matrix <- matrix(0, nrow = nu, ncol = nu,
+                              dimnames = list(users, users))
+  
+  # For loop for calculating Jaccard similarity pairwise among all users 
+  for (i in 1:(nu - 1)) {
+    for (j in (i + 1):nu) {
+      
+      # Define sets of hashtags
+      set1 <- gamma_dist$HashtagsSet[[i]]
+      set2 <- gamma_dist$HashtagsSet[[j]]
+      
+      # Compute Jaccard similarity using bayesbio package
+      similarity <- bayesbio::jaccardSets(set1, set2)
+      
+      # Save similarity measure to matrix
+      similarity_matrix[i, j] <- similarity
+      similarity_matrix[j, i] <- similarity
+    }
+  }
+  
+  # Convert matrix of jaccard similarity to tibble
+  jaccard_sim <- as.data.frame(as.table(similarity_matrix))
+  colnames(jaccard_sim) <- c("from", "to", "jaccard_similarity")
+
+  jaccard_sim <- jaccard_sim %>% 
+    as_tibble() %>% 
+  
+    # Discard similarity measures that are between the same user
+    dplyr::filter(!from == to)
+
+  return(jaccard_sim)
+  
+}
+
+```
+
+```{r compute_jacsim}
+
+# Compute cosine similarity measures
+before_jac_sim <- jac_sim(before_dist_gamma)
+during_jac_sim <- jac_sim(during_dist_gamma)
+after_jac_sim <- jac_sim(after_dist_gamma)
+
+```
+
+
+```{r save_sim}
+
+# Save both similarity measures locally
+write.csv(before_co_sim, "before_cosine.csv", row.names = FALSE)
+write.csv(during_co_sim, "during_cosine.csv", row.names = FALSE)
+write.csv(after_co_sim, "after_cosine.csv", row.names = FALSE)
+
+write.csv(before_jac_sim, "before_jaccard.csv", row.names = FALSE)
+write.csv(during_jac_sim, "during_jaccard.csv", row.names = FALSE)
+write.csv(after_jac_sim, "after_jaccard.csv", row.names = FALSE)
+
+```
+
 
 
 
