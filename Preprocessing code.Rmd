@@ -176,6 +176,6 @@ write.csv(tidy_all, "all_tidy data.csv", row.names = FALSE)
 
 
 # References
-Torp, B. (2020). Dansk stopords Liste. [Danish stopwords]. Github. https://gist.github.com/berteltorp/0cf8a0c7afea7f25ed754f24cfc2467b
+Torp, B. (2020). Dansk stopords Liste. [Danish stopwords]. Github. Accessed 2.5.2024 from  https://gist.github.com/berteltorp/0cf8a0c7afea7f25ed754f24cfc2467b 
 
 
