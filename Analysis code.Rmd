@@ -108,8 +108,9 @@ For many machine learning algorithm, it is necessary to convert data to the form
 
 ```{r dtm_fuction}
 
-# Build function for converting the tidy data frames containing the tokens to DTMs
 dtm_data <- function(tidy_data){
+  "Function for converting tidy data frames containing tokens to DTMs."
+
   grouped_data <- tidy_data %>% 
     
     # Remove the two keywords used to scrape the data due to their naturally occuring high frequency
@@ -174,8 +175,9 @@ topics_after <- tidytext::tidy(tm_after, matrix = "beta")
 
 ```{r top_terms}
 
-# Build function for finding the most common words used in each topic in a period
 top_terms <- function(topics_data){
+  "Function for finding the most common words used in each topic in a period."
+
   top <- topics_data %>% 
     
     # Select the n rows of words with the highest beta-values in each topic 
@@ -190,8 +192,9 @@ top_terms <- function(topics_data){
 }
 
 
-# Build function for plotting these 
 plot_top_terms <- function(top_terms){
+  "Function for plotting most common words within a topics."
+
   top_terms %>% 
     
     # Reorder the list of top terms by beta-values within to the topics to which the terms belong
@@ -281,8 +284,8 @@ edges = strength of similarity in attributes
 
 ```{r aggregate_gamma}
 
-# Build function for computing/collecting topic distribution attribute for each username
 gamma_dist <- function(original_data, gamma_data){
+  "Function for computing/collecting topic distribution attribute for each username"
   
   # Find usernames for those who posted more than one time during the period
   duplicates <- original_data %>% 
@@ -347,8 +350,8 @@ dist_gamma_after <- gamma_dist(after, documents_after)
 
 ```{r cosim_func}
 
-# Build function for computing cosine similarity measures using package proxy
 cosim <- function(gamma_dist){
+  "Function for computing pairwise cosine similarity measures using proxy"
   
   # Convert gamma distribution file to matrix format
   matrix_dist <- gamma_dist %>%
@@ -393,18 +396,17 @@ after_co_sim <- cosim(after_dist_gamma)
 
 ```{r jacsim_func}
 
-# Build function for computing jaccard similarity measures between hashtags using package bayesbio
 jac_sim <- function(gamma_dist){
+  "Function for computing jaccard similarity measures between hashtags using package bayesbio"
   
   # Compute sets for each string of hashtags per user
   gamma_dist <- gamma_dist %>%
   mutate(HashtagsSet = strsplit(Hashtags, ",\\s*"))
 
   # Build empty matrix of similarity measures
-  users <- gamma_dist$Username
-  nu <- length(users)
+  nu <- length(gamma_dist$Username)
   similarity_matrix <- matrix(0, nrow = nu, ncol = nu,
-                              dimnames = list(users, users))
+                              dimnames = list(gamma_dist$Username, gamma_dist$Username))
   
   # For loop for calculating Jaccard similarity pairwise among all users 
   for (i in 1:(nu - 1)) {
@@ -445,20 +447,6 @@ jac_sim <- function(gamma_dist){
 before_jac_sim <- jac_sim(before_dist_gamma)
 during_jac_sim <- jac_sim(during_dist_gamma)
 after_jac_sim <- jac_sim(after_dist_gamma)
-
-```
-
-
-```{r save_sim}
-
-# Save both similarity measures locally
-write.csv(before_co_sim, "before_cosine.csv", row.names = FALSE)
-write.csv(during_co_sim, "during_cosine.csv", row.names = FALSE)
-write.csv(after_co_sim, "after_cosine.csv", row.names = FALSE)
-
-write.csv(before_jac_sim, "before_jaccard.csv", row.names = FALSE)
-write.csv(during_jac_sim, "during_jaccard.csv", row.names = FALSE)
-write.csv(after_jac_sim, "after_jaccard.csv", row.names = FALSE)
 
 ```
 
