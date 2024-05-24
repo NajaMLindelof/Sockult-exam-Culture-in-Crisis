@@ -25,6 +25,10 @@ Using the following package versions:
 - reshape2 1.4.4
 - viridis 0.6.5
 - conflicted 1.2.0
+- igraph 2.0.3
+- bayesbio 1.0.0
+- ggraph 2.2.1
+- proxy 0.4.27
 
 
 ```{r setup, include = F}
@@ -43,7 +47,11 @@ pacman::p_load(
   scales, 
   reshape2,
   viridis,
-  conflicted
+  conflicted,
+  bayesbio,
+  proxy,
+  ggraph,
+  igraph
 )
 
 ```
