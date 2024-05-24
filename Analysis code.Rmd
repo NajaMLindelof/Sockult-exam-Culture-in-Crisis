@@ -450,6 +450,250 @@ after_jac_sim <- jac_sim(after_dist_gamma)
 
 ```
 
+### Build network
+
+```{r build_net}
+
+network <- function(jaccard_sim){
+  "Function for building network using igraph"
+  
+  graph_net <- jaccard_sim %>% 
+    # Ties with existing nonzero similarity only 
+    dplyr::filter(jaccard_similarity > 0) %>% 
+    
+    # Undirected network
+    igraph::graph_from_data_frame(directed = F)
+  
+  return(graph_net)
+  
+}
+
+```
+
+
+```{r compute_nets}
+
+# Build networks using custom function network()
+before_graph <- network(before_jac_sim)
+during_graph <- network(during_jac_sim)
+after_graph <- network(after_jac_sim)
+
+```
+
+#### Compute network metrics
+
+**Nodal and dyadic level:**
+- degrees aka degree centrality: number of edges a given node has
+- path length (or path distance): the number of lines in the sequence from the beginning node to the end node
+
+- centrality: 
+1) Betweenness centrality: the extent to which node i is on the
+geodesic paths of all other pairs of nodes in a network
+2) Closenss centrality: how fast node i can reach all other
+nodes in a network - closeness centrality emphasizes speed of
+connections through both direct and indirect ties to all network nodes (comparing nodes within network; sensitive to network size) --> 
+3) Eigen centrality, special instance of degree centrality, weights each
+of the nodes with direct ties to an actor by their centralities --> high values = high prestige + cnnections with other high value nodes
+
+**Subgroup level**
+- component aka component subgraphs: portions of the network that are disconnected from each other
+- clustering coefficient aka transitivity: probability that the adjacent nodes of a node are connected --> extent to wich nodes cluster together
+
+
+**Network level:**
+- network size: Number of nodes and edges --> network magnitude
+- density of network: indication of the extent to which the number of realised ties approach the maximum possible number ties --> connectivity measure
+- link density: average number of links per node --> connectivity measure
+- centralisation: network level measure of centralisation based on node level centrality scores
+
+
+
+```{r network_metrics}
+
+net_metrics <- function(graph_net){
+  "Function for computing and showing metrics at both nodal, dyadic/triadic, and whole network levels in network analysis."
+  
+  ## Nodal and dyadic levels - applied to whole network
+  
+  # Degrees aka degree centrality
+  degree <- degree(graph_net)
+  max_deg <- max(degree) 
+  min_deg <- min(degree)
+  mean_deg <- mean(degree)
+  
+  # Path length
+  mean_path <- mean_distance(graph_net)
+  longest_path <- diameter(graph_net)
+  
+  # Centrality measures (not included)
+  # Betweenness centrality
+  betweenness_vals <- betweenness(graph_net)
+  # Closeness centrality
+  closeness_vals <- closeness(graph_net)
+  # Eigenvector centrality
+  eigenvector_vals <- eigen_centrality(graph_net)$vector
+
+  
+  ## Subgroups level
+  
+  # Count subgroups aka cliques (not included)
+  #cliques <- count_max_cliques(graph_net)
+  
+  # Transitivity aka clustering coeff
+  clustering_coeff <- transitivity(graph_net, type = "global")
+  
+  # Components
+  components <- count_components(graph_net)
+  
+  ## Network level metrics
+  
+  # Network size
+  size <- vcount(graph_net)
+  edges <- ecount(graph_net)
+  link_dens <- edges/size
+  
+  # Density
+  density <- edge_density(graph_net)
+  
+  # Centralisation
+  centralisation <- centr_degree(graph_net)$centralization
+  
+  # Subgraphs/cliques
+  
+  ## Combine metrics
+  metrics = tibble(
+    Nodes = size,
+    Edges = edges,
+    "Link density" = link_dens,
+    Density = density,
+    Centralisation = centralisation,
+    Transitivity = clustering_coeff,
+    Components = components,
+    #Cliques = cliques,
+    "Mean path length" = mean_path,
+    "Longest path" = longest_path,
+    "Mean degree centrality" = mean_deg,
+    "Max degree centrality" = max_deg,
+    "Min degree centrality" = min_deg
+  )
+  
+  return(metrics)
+  
+}
+
+nodal_net_metrics <- function(graph_net, gamma_dist){
+  "Function for computing and showing degree centrality at nodal level including attribute 'Hashtag'."
+  
+  degree <- degree(graph_net)
+  
+  metrics <- tibble(
+    Node = names(degree),
+    "Degree centrality" = degree  
+  )
+  
+  metrics_full <- metrics %>% 
+    rename(Username = Node) %>% 
+    right_join(gamma_dist, by = "Username") %>% 
+    select(-V1, -V2, -V3)
+  
+  return(metrics_full)
+  
+}
+
+```
+
+
+```{r compute_metrics}
+
+# Compute metrics
+before_metrics <- net_metrics(before_graph)
+during_metrics <- net_metrics(during_graph)
+after_metrics <- net_metrics(after_graph)
+
+
+# Join metrics
+joined_m <- before_metrics %>% 
+  left_join(during_metrics)
+  
+joined_m <- full_join(before_metrics, during_metrics)
+joined_m <- full_join(joined_m, after_metrics)
+
+joined_m <- joined_m %>% 
+  mutate(Period = c("Before", "During", "After")) %>% 
+  select(Period, everything())
+
+```
+
+
+```{r net_plot}
+
+net_plot <- function(graph_net){
+  "Function for plotting networks nicely using ggraph."
+  
+  graph_net %>% 
+    ggraph::ggraph(layout = "fr") +
+    
+    # Colour and give weight to edges using similarity measure
+    geom_edge_link(aes(
+      width = jaccard_similarity, 
+      colour = jaccard_similarity)) +
+   
+    geom_node_point() +
+    scale_edge_width(range = c(0.5, 2)) +
+    scale_edge_color_gradient(low = "blue", high = "red") +
+    theme_void()
+    
+}
+
+
+main_comp_plot <- function(graph_net){
+  "Function for calculating and plotting the largest component of a network."
+  
+  # Find all components
+  components <- components(graph_net)
+  
+  # Find largest component, i.e. component with highest number of nodes
+  largest_component <- which.max(components$csize)
+  
+  # Find usernames that are part of this largest components
+  subgraph_nodes <- igraph::V(graph_net)[
+    components$membership == largest_component]
+
+  # Calculate subgraph from these nodes and their edges
+  subgraph <- igraph::induced_subgraph(graph_net, subgraph_nodes)
+  
+  # Plot using custom network plot function
+  net_plot(subgraph)
+  
+}
+
+
+```
+
+
+
+```{r plot_netws}
+
+# Plot networks
+before_plot <- net_plot(before_graph)
+during_plot <- net_plot(during_graph)
+after_plot <- net_plot(after_graph)
+
+# Calculate and plot main component
+before_main_component_plot <- main_comp_plot(before_graph)
+during_main_component_plot <- main_comp_plot(during_graph)
+after_main_component_plot <- main_comp_plot(after_graph)
+
+```
+
+
+```{r save_net_plot}
+
+# Save plots using the ggsave function
+ggsave(plot = after_main_component_plot, file = "after_main_component_plot.jpeg", width = 7, height = 3.5)
+
+```
+
 
 
 
