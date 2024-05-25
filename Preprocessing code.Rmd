@@ -27,6 +27,8 @@ pacman::p_load(tidyverse, tidytext, topicmodels, conflicted)
 
 ```
 
+See Silge & Robinson (2017) for more text analysis inspiration.
+
 # Preprocessing
 
 ## Merging
@@ -176,6 +178,8 @@ write.csv(tidy_all, "all_tidy data.csv", row.names = FALSE)
 
 
 # References
+Silge, J., & Robinson, D. (2017). Text Mining with R: A Tidy Approach (02-02–2024th ed.). O’Reilly media. https://www.tidytextmining.com/
 Torp, B. (2020). Dansk stopords Liste. [Danish stopwords]. Github. Accessed 2.5.2024 from  https://gist.github.com/berteltorp/0cf8a0c7afea7f25ed754f24cfc2467b 
 
++ Of course all the packages listed above!
 
