@@ -56,7 +56,7 @@ pacman::p_load(
 
 ```
 
-
+Analyses and particularly coding inspired from: Silge and Robinson (2017), Knoke and Yang (2020), Schork (n.d) and Schweinberger (2024).
 
 ### Load preprocessed data
 See preprocessing code file for details
@@ -694,6 +694,13 @@ ggsave(plot = after_main_component_plot, file = "after_main_component_plot.jpeg"
 
 ```
 
+# References
+Knoke, D., & Yang, S. (2020). Social Network Analysis (3rd ed.). Sage Publications.
+Schork, J. (n.d.). Network Analysis in R (Example). Statistics Globe. Retrieved 22 May 2024, from https://statisticsglobe.com/network-analysis-r
+Schweinberger, M. (2024). Network Analysis using R. Language Technology and Data Analysis Laboratory. https://ladal.edu.au/net.html
+Silge, J., & Robinson, D. (2017). Text Mining with R: A Tidy Approach (02-02–2024th ed.). O’Reilly media. https://www.tidytextmining.com/
+
++ Of course all the packages listed above!
 
 
 
